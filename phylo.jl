@@ -75,26 +75,34 @@ function fixclades(t::Tree)
 end
 
 reroot_exceptchild = fixclades ∘ fixroot ∘ reroot_exceptchild_
-reroot_wo_clades = fixroot ∘ reroot_exceptchild_
 
-
+function reroot_root_clades(t :: Branch, barring :: Tree, root_clades :: Multiset{Int})
+    tre_wo_clades = reroot_exceptchild_(t, barring) |> fixroot
+    tre_wo_clades._clades = root_clades - barring._clades
+    tre_wo_clades
+end
 
 function cuts(f, t :: Tree)
-    if isleaf(t)
-        
-    else
-        if (isroot(t))
-            r = f(t)
-            return r
+    let root_clade = nothing
+        function cuts_(f, t :: Tree)
+            if isleaf(t)
+
+            else
+                if (isroot(t))
+                    root_clade = t._clades
+                    f(t)
+                end
+                f(t.left)
+                f(t.right)
+                if !isroot(t)
+                    f(reroot_root_clades(t, t.left, root_clade))
+                    f(reroot_root_clades(t, t.right, root_clade))
+                end
+                cuts_(f, t.left)
+                cuts_(f, t.right)
+            end
         end
-        f(t.left)
-        f(t.right)
-        if !isroot(t)
-            f(reroot_exceptchild(t, t.left))
-            f(reroot_exceptchild(t, t.right))
-        end
-        cuts(f, t.left)
-        cuts(f, t.right)
+        cuts_(f, t)
     end
 end
 
@@ -110,8 +118,6 @@ function cuts(t :: Tree)
     res
 end
 
-
-
 function clade_induced_trees(tre, f)
     f(tre._clades)
 end
@@ -120,11 +126,19 @@ function isset(M :: Multiset{T}) where {T}
     all(M.data[x] <= 1 for x in keys(M.data))
 end
 
-function issingly(t)
+function issingly(t :: Tree)
     isset(t._clades)
 end
 
+function issingly(t :: Multiset{Int})
+    isset(t)
+end
+
+unrooted_subtrees = cuts
+subtrees = unrooted_subtrees
 unrooted_clades(t) = cladeat.(cuts(t))
+clades = unrooted_clades
+
 function unrooted_clades_trees(t)
     c = cuts(t)
     zip(cladeat.(c), c)
@@ -133,7 +147,6 @@ end
 function isbelow(l :: Tree, r :: Tree)
     l._clades < r._clades
 end
-
 
 function maximal_elements(coll, rel=isbelow)
     outdegs = Set()
