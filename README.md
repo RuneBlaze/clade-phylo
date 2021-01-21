@@ -25,13 +25,13 @@ julia extract_mclade.jl examples/g_trees.tre
 ## Requirements
 
 This is written in Julia (unfortunately not Python, and AFAIK school clusters don't
-have Julia). Install Julia 1.5 and install the following packages
+have Julia). [Install Julia](https://julialang.org/downloads/) 1.5 and install the following packages
 
 ```
 DocOpt, Multisets, Combinatorics, DataStructures
 ```
 
-Or run the following in the Julia repl to install
+Or run the following in the Julia repl (running `julia` in unix systems) to install the packages
 ```julia
 using Pkg
 for pkg = ["DocOpt", "Multisets", "Combinatorics", "DataStructures"]
