@@ -8,28 +8,30 @@ Usage:
 Options:
     -h --help   Show this screen.
 """
-
 include("phylo.jl")
 include("external.jl")
 include("phylo_extra.jl")
 
-using DocOpt
+using DocOpt, Logging, ProgressMeter
+
 args = docopt(doc)
 inpath = args["<gene_trees>"]
 outpath = isnothing(args["<out>"]) ? inpath : args["<out>"]
 
+
+@info "Now parsing input $inpath"
 gene_trees = parse_newicks(open(inpath))
+@info "Finished parsing!"
 
 maximal_trees = Tree[]
-for (i, gt) in enumerate(gene_trees)
-
+@showprogress "Computing maximal clades" for (i, gt) in enumerate(gene_trees)
     singly_trees = Tree[]
     for t=singly_cuts(gt)
         if !istrivial(t) && !issinglysubtree(t)
             push!(singly_trees, t)
         end
     end
-    mt = sort(collect(maximal_elements(collect(singly_trees)));　by=it -> length(it._clades))
+    mt = sort(collect(maximal_elements(singly_trees));　by=it -> length(it._clades))
     append!(maximal_trees, mt)
 end
 

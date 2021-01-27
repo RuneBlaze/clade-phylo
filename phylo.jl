@@ -21,7 +21,9 @@ isroot(t) = isnothing(t._parent)
 isleaf(x) = isa(x, Leaf)
 
 function Base.show(io::IO, t::Tree)
-    print(io, "Rooted[$(bintree2newick(t));]")
+    print(io, "Rooted[")
+    notatetree(io, t)
+    println(io, ";]")
 end
 
 function Base.:(==)(x :: Tree, y :: Tree)
@@ -166,15 +168,18 @@ end
 
 
 function maximal_elements(coll, rel=isbelow)
-    outdegs = Set()
-    for (l, r) in combinations(coll, 2)
-        if rel(l, r)
-            # then l points to r
-            push!(outdegs,l)
+    n = coll |> length
+    rg = 1:n
+    outdegs = zeros(n)
+    for (l, r) in combinations(rg, 2)
+        lhs = coll[l]
+        rhs = coll[r]
+        if outdegs[l] == 0 && rel(lhs, rhs)
+            outdegs[l] += 1
         end
-        if rel(r, l)
-            push!(outdegs,r)
+        if outdegs[r] == 0 && rel(rhs, lhs)
+            outdegs[r] += 1
         end
     end
-    setdiff(Set(coll), outdegs)
+    [e for (i,e) = enumerate(coll) if outdegs[i] == 0 ]
 end

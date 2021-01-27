@@ -1,20 +1,19 @@
-function parse_newick(io)
-    cont = read(io, String)
-    cont = replace(cont, r":\d+\.\d+" => "")
-    cont = replace(cont, r"_\d+_\d+" => "")
-    cont = replace(cont, r"\)\d+" => ")")
-    return parse_tuple(eval(Meta.parse(cont)))
-end
+# function parse_newick(io)
+#     cont = read(io, String)
+#     cont = replace(cont, r":\d+\.\d+" => "")
+#     cont = replace(cont, r"_\d+_\d+" => "")
+#     cont = replace(cont, r"\)\d+" => ")")
+#     return parse_tuple(eval(Meta.parse(cont)))
+# end
 
 function parse_newicks(io)
     res = Tree[]
-    tree_src = readuntil(io, ";"; keep=true)
-    skipchars(isspace, io)
-
-    while !isempty(tree_src)
-        push!(res, parse_newick(IOBuffer(tree_src)))
-        tree_src = readuntil(io, ";"; keep=true)
-        skipchars(isspace, io)
+    skipws() = skipchars(isspace, io)
+    skipws()
+    while !eof(io)
+        push!(res, parse_newick(io))
+        accept(io, ';')
+        skipws()
     end
     res
 end
@@ -53,16 +52,83 @@ end
 #     stack
 # end
 
-function parse_newicks(io)
-    res = Tree[]
-    tree_src = readuntil(io, ";"; keep=true)
-    skipchars(isspace, io)
-    while !isempty(tree_src)
-        push!(res, parse_newick(IOBuffer(tree_src)))
-        tree_src = readuntil(io, ";"; keep=true)
-        skipchars(isspace, io)
+# function parse_newicks(io)
+#     res = Tree[]
+#     tree_src = readuntil(io, ";"; keep=true)
+#     skipchars(isspace, io)
+#     while !isempty(tree_src)
+#         push!(res, parse_newick(IOBuffer(tree_src)))
+#         tree_src = readuntil(io, ";"; keep=true)
+#         skipchars(isspace, io)
+#     end
+#     res
+# end
+
+# recursive descent parser for newicks... yeah apprantly
+
+function takenumber(io :: IO)
+    buf = IOBuffer()
+    x = peek(io, Char)
+    while isdigit(x)
+        print(buf, x)
+        skip(io, 1)
+        x = peek(io, Char)
     end
+    return parse(Int, String(take!(buf)))
+end
+
+function skip_suffix(io :: IO)
+    while peek(io, Char) == '_'
+        skip(io, 1)
+        takenumber(io)
+    end
+end
+
+function skiplength(io :: IO)
+    if peek(io, Char) == ':' # oh boy, those pesky lengths...
+        skipchars(io) do ch
+            ch == ':' || ch == '.' || isdigit(ch)
+        end
+    end
+end
+
+function accept(io :: IO, ch :: Char)
+    if peek(io, Char) != ch
+        throw("$(peek(io, Char)) should not occur, it should be $ch")
+    end
+    skip(io, 1)
+end
+
+
+
+function buildbranch(l :: Tree, r :: Tree)
+    res = Branch(l, r, +(l._clades, r._clades), nothing)
+    l._parent = res
+    r._parent = res
     res
+end
+
+function parse_newick(io :: IO) # return a newick value
+    if isdigit(peek(io, Char))
+        # it is a number value
+        n = takenumber(io)
+        skip_suffix(io)
+        skiplength(io)
+        Leaf(n, Multiset([n]), nothing)
+    else
+        # it is a value type
+        accept(io, '(')
+        l = parse_newick(io)
+        accept(io, ',')
+        r = parse_newick(io)
+        accept(io, ')')
+        if isdigit(peek(io, Char))
+            takenumber(io)
+            skiplength(io)
+        end
+        skiplength(io)
+        buildbranch(l, r)
+    end
 end
 
 function parse_tuple(tup)
@@ -82,9 +148,29 @@ newick = parse_tuple
 
 function writetree(io::IO, tree :: Tree)
     buf = IOBuffer()
-    print(buf, bintree2newick(tree))
-    print(io, replace(String(take!(buf)), " " => ""))
+    notatetree(io, tree)
     println(io, ";")
+end
+
+function notatetree(buf :: IO, tree :: Tree)
+    function f(t :: Tree)
+        if isleaf(t)
+            print(buf, t.value)
+        else
+            print(buf, '(')
+            f(t.left)
+            print(buf, ',')
+            f(t.right)
+            print(buf, ')')
+        end
+    end
+    f(tree)
+end
+
+function notatetree(tree :: Tree)
+    buf = IOBuffer()
+    notatetree(buf, tree)
+    take!(buf) |> String
 end
 
 function writetrees(io :: IO, trees)
