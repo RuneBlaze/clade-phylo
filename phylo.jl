@@ -54,14 +54,21 @@ function reroot_exceptchild_(t::Branch, barring::Tree)
     end
 end
 
-function fixroot(t::Tree)
+function fixroot_(t::Tree)
     if isa(t, Leaf) return t end
     t.left._parent = t
     t.right._parent = t
-    fixroot(t.left)
-    fixroot(t.right)
+    fixroot_(t.left)
+    fixroot_(t.right)
     t
 end
+
+function destroy_root(t :: Tree)
+    t._parent = nothing
+    t
+end
+
+fixroot = destroy_root ∘ fixroot_
 
 function fixclades(t::Tree)
     if isa(t, Leaf)
@@ -147,6 +154,16 @@ end
 function isbelow(l :: Tree, r :: Tree)
     l._clades < r._clades
 end
+
+function issinglysubtree(l :: Tree)
+    if isleaf(l) return false end
+    if isnothing(l._parent) return false end
+    if issingly(l._parent)
+        return true
+    end
+    return false
+end
+
 
 function maximal_elements(coll, rel=isbelow)
     outdegs = Set()

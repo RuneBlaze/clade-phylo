@@ -11,6 +11,7 @@ Options:
 
 include("phylo.jl")
 include("external.jl")
+include("phylo_extra.jl")
 
 using DocOpt
 args = docopt(doc)
@@ -18,18 +19,20 @@ inpath = args["<gene_trees>"]
 outpath = isnothing(args["<out>"]) ? inpath : args["<out>"]
 
 gene_trees = parse_newicks(open(inpath))
-singly_trees = Set{Tree}()
-for gt in gene_trees
-    for t=subtrees(gt)
-        if issingly(t)
+
+maximal_trees = Tree[]
+for (i, gt) in enumerate(gene_trees)
+
+    singly_trees = Tree[]
+    for t=singly_cuts(gt)
+        if !istrivial(t) && !issinglysubtree(t)
             push!(singly_trees, t)
         end
     end
+    mt = sort(collect(maximal_elements(collect(singly_trees)));　by=it -> length(it._clades))
+    append!(maximal_trees, mt)
 end
-maximal_trees = sort(
-    collect(maximal_elements(collect(singly_trees)));
-    by=it -> length(it._clades)
-)
+
 open(outpath * ".maximal.tre", "w+") do f
     writetrees(f, maximal_trees)
 end
